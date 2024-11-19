@@ -1,6 +1,12 @@
 import dash
 from dash import dcc, html, Input, Output
 import dash_daq as daq
+import logging
+
+
+# Configure logging
+logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -130,7 +136,7 @@ app.layout = html.Div([
                 handleLabel={"showCurrentValue": True, "label": "l"},
                 marks={i: str(i) for i in range(0, 20, 5)},
             ),
-            # Mean Electric Price Configuration
+            # Mean Fuel Price Configuration
             html.H4("Fuel Price Configuration"),
             html.Div([
                 # Fuel Price Mean
@@ -173,32 +179,93 @@ def update_charging_percentages(range_values):
 
 @app.callback(
     Output('cost-comparison-graph', 'figure'),
-    Input('calculate-button', 'n_clicks'),
-    Input('vehicle-type', 'value'),
-    Input('annual-mileage', 'value'),
-    Input('ownership-period', 'value'),
-    Input('electricity-price-mean', 'value'),
-    Input('electricity-price-std', 'value')
+    [
+        Input('shared-annual-mileage', 'value'),
+        Input('ev-price-of-purchase', 'value'),
+        Input('ev-car-age', 'value'),
+        Input('ev-consumption', 'value'),
+        Input('charging-type-range', 'value'),
+        Input('home-charging-price', 'value'),
+        Input('ac-charging-price', 'value'),
+        Input('dc-charging-price', 'value'),
+        Input('yearlyProgressionEV', 'value'),
+        Input('cv-price-of-purchase', 'value'),
+        Input('cv-car-age', 'value'),
+        Input('cv-consumption', 'value'),
+        Input('cv-fuel-price-mean', 'value'),
+        Input('yearlyProgressionCV', 'value'),
+        Input('calculate-button', 'n_clicks')  # Add n_clicks here
+    ]
 )
-def update_graph(n_clicks, vehicle_type, annual_mileage, ownership_period, electricity_price_mean, electricity_price_std):
-    if n_clicks > 0:
-        years = np.arange(1, ownership_period + 1)
-        if vehicle_type == 'EV':
-            total_costs, residual_values = calculate_ev_costs(
-                annual_mileage, years, electricity_price_mean, electricity_price_std)
-        else:
-            total_costs, residual_values = calculate_cv_costs(annual_mileage, years)
+def update_comparison_graph(
+    annual_mileage,
+    ev_price,
+    ev_age,
+    ev_consumption,
+    charging_range,
+    home_price,
+    ac_price,
+    dc_price,
+    yearly_progression_ev,
+    cv_price,
+    cv_age,
+    cv_consumption,
+    cv_fuel_price,
+    yearly_progression_cv,
+    n_clicks
+):
+    print(f"Callback triggered with n_clicks={n_clicks}, annual_mileage={annual_mileage}")
+    # Ensure the callback only processes after the button is clicked
+    if n_clicks is None or n_clicks == 0:
+        logger.info("No clicks yet; returning an empty figure.")
+        return {}
 
-        # Create the figure
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=years, y=total_costs, mode='lines+markers', name='Total Cost'))
-        fig.add_trace(go.Scatter(x=years, y=residual_values, mode='lines+markers', name='Residual Value'))
-        fig.update_layout(title='Cost and Residual Value Over Time', xaxis_title='Years', yaxis_title='Amount (€)')
-        return fig
-    else:
-        return go.Figure()
+    logger.info("Processing input values.")
+    # Calculate charging percentages
+    home_percentage = charging_range[0]
+    ac_percentage = charging_range[1] - charging_range[0]
+    dc_percentage = 100 - charging_range[1]
 
+    # Summarize the variables for visualization or calculation
+    ev_total_charging_cost = (
+        (home_percentage / 100) * home_price +
+        (ac_percentage / 100) * ac_price +
+        (dc_percentage / 100) * dc_price
+    )
+
+    # Example data processing for the comparison graph
+    cv_total_fuel_cost = annual_mileage * cv_fuel_price / 100  # Simplified example
+    ev_total_cost = ev_price + ev_total_charging_cost * ev_age  # Simplified example
+    cv_total_cost = cv_price + cv_total_fuel_cost * cv_age  # Simplified example
+    # Log calculated values
+    logger.debug(f"EV Total Cost: {ev_total_cost}, CV Total Cost: {cv_total_cost}")
+
+
+    # Prepare data for the graph
+    data = {
+        'Vehicle Type': ['Electric Vehicle', 'Combustion Vehicle'],
+        'Total Cost (€)': [ev_total_cost, cv_total_cost]
+    }
+
+    # Create a bar graph comparing EV and CV
+    fig = {
+        'data': [
+            {
+                'x': data['Vehicle Type'],
+                'y': data['Total Cost (€)'],
+                'type': 'bar',
+                'name': 'Total Cost'
+            }
+        ],
+        'layout': {
+            'title': 'Vehicle Cost Comparison',
+            'xaxis': {'title': 'Vehicle Type'},
+            'yaxis': {'title': 'Total Cost (€)'}
+        }
+    }
+    logger.info("Graph created successfully.")
+    return fig
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, threaded=False)
