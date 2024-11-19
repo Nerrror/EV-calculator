@@ -2,7 +2,8 @@ import dash
 from dash import dcc, html, Input, Output
 import dash_daq as daq
 import logging
-
+from plot_tcos import generate_ev_tco_plot
+from ..core import mean_electricity_cost
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -221,49 +222,19 @@ def update_comparison_graph(
         return {}
 
     logger.info("Processing input values.")
-    # Calculate charging percentages
-    home_percentage = charging_range[0]
-    ac_percentage = charging_range[1] - charging_range[0]
-    dc_percentage = 100 - charging_range[1]
+    # mean_price calculation
+    home = charging_range[0]
+    ac = charging_range[1] - charging_range[0]
+    dc = 100 - charging_range[1]
 
-    # Summarize the variables for visualization or calculation
-    ev_total_charging_cost = (
-        (home_percentage / 100) * home_price +
-        (ac_percentage / 100) * ac_price +
-        (dc_percentage / 100) * dc_price
-    )
-
-    # Example data processing for the comparison graph
-    cv_total_fuel_cost = annual_mileage * cv_fuel_price / 100  # Simplified example
-    ev_total_cost = ev_price + ev_total_charging_cost * ev_age  # Simplified example
-    cv_total_cost = cv_price + cv_total_fuel_cost * cv_age  # Simplified example
-    # Log calculated values
-    logger.debug(f"EV Total Cost: {ev_total_cost}, CV Total Cost: {cv_total_cost}")
-
-
-    # Prepare data for the graph
-    data = {
-        'Vehicle Type': ['Electric Vehicle', 'Combustion Vehicle'],
-        'Total Cost (€)': [ev_total_cost, cv_total_cost]
-    }
-
-    # Create a bar graph comparing EV and CV
-    fig = {
-        'data': [
-            {
-                'x': data['Vehicle Type'],
-                'y': data['Total Cost (€)'],
-                'type': 'bar',
-                'name': 'Total Cost'
-            }
-        ],
-        'layout': {
-            'title': 'Vehicle Cost Comparison',
-            'xaxis': {'title': 'Vehicle Type'},
-            'yaxis': {'title': 'Total Cost (€)'}
-        }
-    }
-    logger.info("Graph created successfully.")
+    mean_price = mean_electricity_cost(cost_per_unit = [home_price, ac_price, dc_price], percentage_distribution=[home, ac, dc])
+    fig = generate_ev_tco_plot(
+        base_price = ev_price,
+        distance_km = 200000,
+        km_per_year = annual_mileage,
+        maintenance_rate_per_km = 0,
+        mean_price = mean_price,
+        consumption_per_100km = ev_consumption,)
     return fig
 
 
