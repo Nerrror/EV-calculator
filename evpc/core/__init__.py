@@ -1,1 +1,2 @@
-from .ev_price import double_linear_decay, compute_price_over_km, price_depreciation
+# from .general_cost import double_linear_decay, compute_price_over_km, price_depreciation
+from .ev_price import mean_electricity_cost, compute_energy_cost_over_distance, total_cost_of_ownership
