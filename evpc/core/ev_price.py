@@ -18,6 +18,8 @@ def price_depreciation(base_price, x, depreciation_rate=0.05, km_per_year=25000)
     cost = base_price * (1 - decay)
     return cost
 
+def mean_electricity_cost(cost, percentage):
+    return cost @ percentage
 
 def compute_price_over_km(x, P_mean, consumption, km_per_year=25000, price_inflation=0.02):
     '''
