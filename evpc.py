@@ -2,8 +2,9 @@ import dash
 from dash import dcc, html, Input, Output
 import dash_daq as daq
 import logging
-from plot_tcos import generate_ev_tco_plot
-from ..core import mean_electricity_cost
+import plotly.graph_objs as go
+from evpc.visualization.plot_tcos import generate_ev_tco_plot, generate_cv_tco_plot
+from evpc.core import mean_electricity_cost
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -216,25 +217,41 @@ def update_comparison_graph(
     n_clicks
 ):
     print(f"Callback triggered with n_clicks={n_clicks}, annual_mileage={annual_mileage}")
+    
     # Ensure the callback only processes after the button is clicked
     if n_clicks is None or n_clicks == 0:
         logger.info("No clicks yet; returning an empty figure.")
         return {}
 
     logger.info("Processing input values.")
+    
     # mean_price calculation
     home = charging_range[0]
     ac = charging_range[1] - charging_range[0]
     dc = 100 - charging_range[1]
 
-    mean_price = mean_electricity_cost(cost_per_unit = [home_price, ac_price, dc_price], percentage_distribution=[home, ac, dc])
-    fig = generate_ev_tco_plot(
+    mean_price = mean_electricity_cost(cost_per_unit = [home_price, ac_price, dc_price], percentage_distribution=[home/100, ac/100, dc/100])
+    print("mean price: ", mean_price)
+    
+
+    trace_ev = generate_ev_tco_plot(
         base_price = ev_price,
         distance_km = 200000,
         km_per_year = annual_mileage,
         maintenance_rate_per_km = 0,
         mean_price = mean_price,
-        consumption_per_100km = ev_consumption,)
+        consumption_per_100km = ev_consumption)
+    
+    trace_cv = generate_cv_tco_plot(
+        base_price = cv_price,
+        distance_km = 200000,
+        km_per_year = annual_mileage,
+        maintenance_rate_per_km = 0,
+        mean_price = cv_fuel_price,
+        consumption_per_100km = cv_consumption)
+    
+    fig = go.Figure(data=[trace_ev, trace_cv])
+
     return fig
 
 
